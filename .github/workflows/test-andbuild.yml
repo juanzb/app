@@ -41,7 +41,7 @@ jobs:
 
       # 6️⃣ Ejecuta los tests (si existen)
       - name: Run tests
-        run: pnpm run test -- --runInBand
+        run: pnpm run test
 
       # 7️⃣ Compila la app
       - name: Build NestJS app
