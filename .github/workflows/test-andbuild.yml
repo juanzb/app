@@ -12,30 +12,45 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Descarga el código del repo
+      # 1️⃣ Descarga el código
       - name: Checkout app
         uses: actions/checkout@v4
 
-      # 2️⃣ Configura Node.js y cache
-      - name: Use Node.js 22
+      # 2️⃣ Instala Node.js (sin cache aún)
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22.17.1
-          cache: 'pnpm'
-          cache-dependency-path: pnpm-lock.yaml
+          node-version: 22
 
-      # 3️⃣ Instala pnpm globalmente
+      # 3️⃣ Instala pnpm (ya que no viene preinstalado)
       - name: Install pnpm
         run: npm install -g pnpm@latest-10
 
-      # 4️⃣ Instala dependencias
+      # 4️⃣ Restaura caché de dependencias manualmente
+      - name: Restore pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      # 5️⃣ Instala dependencias
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --reporter=append-only
 
-      # 5️⃣ Ejecuta los tests
+      # 6️⃣ Ejecuta los tests (si existen)
       - name: Run tests
         run: pnpm run test --if-present -- --runInBand
 
-      # 6️⃣ Compila la app
+      # 7️⃣ Compila la app
       - name: Build NestJS app
         run: pnpm run build
+
+      # 8️⃣ Guarda la carpeta dist como artefacto (opcional)
+      - name: Save build artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nestjs-dist
+          path: dist
