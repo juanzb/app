@@ -1,90 +1,28 @@
-name: CD - Deploy NestJS App
+name: CI/CD Docker
 
 on:
-  workflow_run:
-    workflows: ['CI - NestJS']
-    types:
-      - completed
+  push:
+    branches: [main]
 
 jobs:
-  deploy:
+  build-and-push:
     runs-on: ubuntu-latest
     steps:
-      # 1️⃣ Descarga el código
-      - name: Checkout app
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      # 2️⃣ Instala Node.js (sin cache aún)
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to DockerHub
+        uses: docker/login-action@v2
         with:
-          node-version: 22
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # 3️⃣ Instala pnpm (ya que no viene preinstalado)
-      - name: Install pnpm
-        run: npm install -g pnpm@latest-10
-
-      # 4️⃣ Restaura caché de dependencias manualmente
-      - name: Restore pnpm cache
-        uses: actions/cache@v4
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
         with:
-          path: ~/.pnpm-store
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-
-
-      # 5️⃣ Instala dependencias
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile --reporter=append-only
-
-      # 3️⃣ Instala dependencias y compila la app
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Build NestJS app
-        run:
-          pnpm run build
-
-          # 2️⃣ Conéctate al servidor y despliega
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v0.1.7
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          script: |
-            # Ir a la carpeta de la app
-            cd /home/ubuntu/app-deploy
-
-            # Si no hay repo, clonar por primera vez
-            if [ ! -d ".git" ]; then
-              git init
-              git remote add origin https://github.com/<TU_USUARIO>/<TU_REPO>.git
-              git fetch
-              git reset --hard origin/main
-            else
-              git fetch
-              git reset --hard origin/main
-            fi
-
-            # Instala Node, pnpm y pm2 si no están
-            if ! command -v node >/dev/null 2>&1; then
-              curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-              sudo apt-get install -y nodejs
-            fi
-
-            if ! command -v pnpm >/dev/null 2>&1; then
-              sudo npm install -g pnpm@latest-10
-            fi
-
-            if ! command -v pm2 >/dev/null 2>&1; then
-              sudo npm install -g pm2
-            fi
-
-            # Instala dependencias y compila
-            pnpm install --prod
-            pnpm run build
-
-            # Reinicia o inicia la app con PM2
-            pm2 restart nest-app || pm2 start dist/main.js --name nest-app
-            pm2 save
+          context: .
+          push: true
+          tags: your-dockerhub-username/nest-app:latest
