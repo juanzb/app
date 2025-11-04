@@ -1,0 +1,84 @@
+name: CD - Deploy NestJS App
+
+on:
+  workflow_run:
+    workflows: ['CI - NestJS']
+    types:
+      - completed
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # 1️⃣ Descarga el código del repo
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2️⃣ Configura Node.js y PNPM
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install pnpm
+        run: npm install -g pnpm@latest-10
+
+      # 3️⃣ Instala dependencias y compila la app
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build NestJS app
+        run: pnpm run build
+
+      # 4️⃣ Sube los archivos compilados y esenciales al servidor
+      - name: Upload build files via SCP
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          source: |
+            dist/
+            package.json
+            pnpm-lock.yaml
+          target: /home/ubuntu/app-deploy
+
+      # 5️⃣ Conéctate al servidor y arranca/reinicia con PM2
+      - name: Restart app on server via SSH
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            # 🔹 Asegurarse de tener Node, PNPM y PM2 instalados
+            if ! command -v node >/dev/null 2>&1; then
+              echo "Node.js no encontrado. Instalando..."
+              curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+              sudo apt-get install -y nodejs
+            fi
+
+            if ! command -v pnpm >/dev/null 2>&1; then
+              echo "PNPM no encontrado. Instalando..."
+              sudo npm install -g pnpm@latest-10
+            fi
+
+            if ! command -v pm2 >/dev/null 2>&1; then
+              echo "PM2 no encontrado. Instalando..."
+              sudo npm install -g pm2
+            fi
+
+            # 🔹 Ir al directorio de la app
+            cd /home/ubuntu/app-deploy
+
+            # 🔹 Instalar dependencias de producción
+            pnpm install --prod
+
+            # 🔹 Reiniciar o iniciar la app con PM2
+            pm2 restart nest-app || pm2 start dist/main.js --name nest-app
+
+            # 🔹 Guardar configuración PM2 para reinicios automáticos
+            pm2 save
+            pm2 startup systemd -u ubuntu --hp /home/ubuntu
