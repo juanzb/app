@@ -31,7 +31,7 @@ jobs:
 
       # 5️⃣ Ejecutar tests de NestJS
       - name: Run tests
-        run: pnpm run test -- --runInBand
+        run: pnpm run test
 
       # 6️⃣ Configurar Docker Buildx
       - name: Set up Docker Buildx
