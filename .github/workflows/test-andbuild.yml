@@ -3,8 +3,6 @@ name: CI - NestJS
 on:
   push:
     branches: [main, development]
-  # pull_request:
-  #   branches: [main, development]
 
 permissions:
   contents: read
@@ -18,7 +16,7 @@ jobs:
       - name: Checkout app
         uses: actions/checkout@v4
 
-      # 2️⃣ Configura Node.js
+      # 2️⃣ Configura Node.js y cache
       - name: Use Node.js 22
         uses: actions/setup-node@v4
         with:
@@ -26,17 +24,18 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: pnpm-lock.yaml
 
+      # 3️⃣ Instala pnpm globalmente
       - name: Install pnpm
         run: npm install -g pnpm@latest-10
 
-      # 3️⃣ Instala dependencias
+      # 4️⃣ Instala dependencias
       - name: Install dependencies
-        run: pnpm ci
+        run: pnpm install --frozen-lockfile --reporter=append-only
 
-      # 4️⃣ Ejecuta los tests de NestJS
+      # 5️⃣ Ejecuta los tests
       - name: Run tests
-        run: pnpm run test --if-present
+        run: pnpm run test --if-present -- --runInBand
 
-      # 5️⃣ Compila la app (verifica que build funcione)
+      # 6️⃣ Compila la app
       - name: Build NestJS app
         run: pnpm run build
