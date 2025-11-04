@@ -10,20 +10,32 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      # 1️⃣ Descarga el código del repo
-      - name: Checkout repository
+      # 1️⃣ Descarga el código
+      - name: Checkout app
         uses: actions/checkout@v4
 
-      # 2️⃣ Configura Node.js y PNPM
+      # 2️⃣ Instala Node.js (sin cache aún)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'pnpm'
-          cache-dependency-path: pnpm-lock.yaml
 
+      # 3️⃣ Instala pnpm (ya que no viene preinstalado)
       - name: Install pnpm
         run: npm install -g pnpm@latest-10
+
+      # 4️⃣ Restaura caché de dependencias manualmente
+      - name: Restore pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      # 5️⃣ Instala dependencias
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --reporter=append-only
 
       # 3️⃣ Instala dependencias y compila la app
       - name: Install dependencies
